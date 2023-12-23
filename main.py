@@ -6,118 +6,152 @@ from tkinter import filedialog, simpledialog, messagebox, ttk
 from PIL import ImageTk
 
 
-def initialize():
-    global chosen_point, selected_color, font, x
-    chosen_point = None
-    selected_color = (0, 0, 0)
-    font = ImageFont.truetype("arial.ttf", 50)
-    x = 0
+class ImageGenerator:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.geometry("800x600")
+        self.root.title("Image Generator")
+        self.root.config(background=self.rgb2hex((229, 232, 232)))
 
-initialize()
+        self.chosen_point = None
+        self.color_button = tk.Button()
+        self.selected_color = (0, 0, 0)
+        self.font = ImageFont.truetype("arial.ttf", 50)
+        self.x = 0
+        self.file_path = None
+        self.img_display = None
 
+        self.create_widgets()
 
-def select_file():
-    global file_path, img_display
-    file_path = filedialog.askopenfilename(filetypes=[("Image File", '.jpg .png .jpeg')], title="Select an image")
-    file_label.config(text=f"Imagen seleccionada: {os.path.basename(file_path)}")
-    img = Image.open(file_path)
-    img_display = ImageTk.PhotoImage(img)
-    canvas.create_image(0, 0, anchor=tk.NW, image=img_display)
-    canvas.config(width=img_display.width(), height=img_display.height())
+    def create_widgets(self):
+        left_frame = tk.Frame(self.root)
+        left_frame.grid(row=0, column=0, padx=10, pady=5)
+        left_frame.pack(side=tk.LEFT, fill=tk.Y, pady=10)
 
-def select_color():
-    global selected_color
-    selected_color = askcolor()[0]
-    color_button.config(background=rgb2hex(selected_color))
-    draw_label()
+        file_button = tk.Button(left_frame, text="Seleccionar Imagen", command=self.select_file)
+        file_button.pack(pady=25)
 
-def rgb2hex(rgb):
-    return "#%02x%02x%02x" % rgb
+        self.color_button = tk.Button(left_frame, text="Seleccionar Color", command=self.select_color,
+                                 background=self.rgb2hex(self.selected_color), foreground="white")
+        self.color_button.pack(pady=25)
 
+        font_size_slider = tk.Scale(left_frame, from_=12, to=250,
+                                    orient=tk.HORIZONTAL, command=self.change_font_size)
+        font_size_slider.pack(pady=25)
 
-def change_font_size(val):
-    global font
-    font = ImageFont.truetype("arial.ttf", int(val))
-    draw_label()
+        canvas = tk.Canvas(self.root)
+        canvas.pack()
 
-def input_number():
-    global x
-    x = simpledialog.askinteger("Cantidad", "Ingrese la cantidad de boletos a generar")
+        canvas.bind("<Button-1>", self.on_click)
 
-def on_click(event):
-    global chosen_point 
-    chosen_point = (event.x, event.y)
-    draw_label()
-    print(chosen_point)
+        progress = ttk.Progressbar(left_frame, orient=tk.HORIZONTAL,
+                                   length=100, mode='determinate')
+        progress.pack(pady=25)
 
-def draw_label():
-    global img_display, chosen_point
-    if chosen_point and file_path:
-        img = Image.open(file_path)
-        draw = ImageDraw.Draw(img)
-        draw.text(chosen_point, "0000", font=font, fill=selected_color)
-        img_display = ImageTk.PhotoImage(img)
-        canvas.create_image(0, 0, anchor=tk.NW, image=img_display)
+        generate_button = tk.Button(
+            left_frame, text="Generar Imagenes", command=self.generate_images)
+        generate_button.pack(pady=25)
+        
+        menubar = tk.Menu(self.root)
+        self.root.config(menu=menubar)
 
-def generate_images():
-    if 'file_path' not in globals():
-        messagebox.showerror("Error", "No se ha seleccionado un archivo")
-        return
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Open", command=self.select_file)
+        menubar.add_cascade(label="File", menu=file_menu)
+
+        help_menu = tk.Menu(menubar, tearoff=0)
+        help_menu.add_command(label="About", command=self.show_about)
+        menubar.add_cascade(label="Help", menu=help_menu)
+
+        self.canvas = canvas
+        self.progress = progress
     
-    input_number()
-    output_dir = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop', 'Output')
+    def show_about(self):
+        about_window = tk.Toplevel(self.root)
+        about_window.title("About")
+        about_label = tk.Label(about_window, text="Image Generator App v1.0")
+        about_label.pack()
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    for i in range(x):
-        try:
-            img = Image.open(file_path)
-            draw = ImageDraw.Draw(img)
-            draw.text(chosen_point, str(i+1), font=font, fill=selected_color)
-            # if image is png, convert to jpg
-            if img.mode == 'RGBA':
-                img.save(os.path.join(output_dir, f"{i+1}.png"))
-                progress['value'] = (i+1)/x*100
-                progress.update()
-            else:
-                img.save(os.path.join(output_dir, f"{i+1}.jpg"))
-                progress['value'] = (i+1)/x*100
-                progress.update()
-        except Exception as e:
-            messagebox.showerror("Error", e)
-            return
+        url = 'https://github.com/arielfernando1/pastenumber'
+        about_link = tk.Label(about_window, text=url, fg="blue", cursor="hand2")
+        about_link.bind("<Button-1>", lambda e: os.system(f"open {url}"))
+        about_link.pack()
         
 
-    os.startfile(output_dir)
 
-root = tk.Tk()
-root.title("Image Generator")
+    def select_file(self):
+        self.file_path = filedialog.askopenfilename(
+            filetypes=[("Image File", '.jpg .png .jpeg')], title="Select an image")
+        self.root.title(f"Image Generator - {self.file_path}")
+        img = Image.open(self.file_path)
+        self.img_display = ImageTk.PhotoImage(img)
+        self.canvas.create_image(0, 0, anchor=tk.NW, image=self.img_display)
+        self.canvas.config(width=self.img_display.width(), height=self.img_display.height())
 
-file_button = tk.Button(root, text="Seleccionar Imagen", command=select_file)
-file_button.pack()
+    def select_color(self):
+        self.selected_color = askcolor()[0]
+        self.color_button.config(background=self.rgb2hex(self.selected_color))
+        self.draw_label()
 
-color_button = tk.Button(root, text="Seleccionar Color", command=select_color, background=rgb2hex(selected_color), foreground="white")   
-color_button.pack()
+    def change_font_size(self, val):
+        self.font = ImageFont.truetype("arial.ttf", int(val))
+        self.draw_label()
+
+    def on_click(self, event):
+        self.chosen_point = (event.x, event.y)
+        self.draw_label()
+
+    def draw_label(self):
+        if self.chosen_point and self.file_path:
+            img = Image.open(self.file_path)
+            draw = ImageDraw.Draw(img)
+            draw.text(self.chosen_point, "0000", font=self.font, fill=self.selected_color)
+            self.img_display = ImageTk.PhotoImage(img)
+            self.canvas.create_image(0, 0, anchor=tk.NW, image=self.img_display)
+
+    def generate_images(self):
+        if not self.file_path:
+            messagebox.showerror("Error", "No se ha seleccionado un archivo")
+            return
+
+        self.input_number()
+
+        output_dir = os.path.join(os.environ['HOME'], 'Desktop', 'Output') if os.name == 'posix' else os.path.join(os.environ['USERPROFILE'], 'Desktop', 'Output')
+
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        for i in range(self.x):
+            try:
+                img = Image.open(self.file_path)
+                draw = ImageDraw.Draw(img)
+                draw.text(self.chosen_point, str(i+1), font=self.font, fill=self.selected_color)
+                if img.mode == 'RGBA':
+                    img.save(os.path.join(output_dir, f"{i+1}.png"))
+                else:
+                    img.save(os.path.join(output_dir, f"{i+1}.jpg"))
+                self.progress['value'] = (i+1)/self.x*100
+                self.progress.update()
+            except Exception as e:
+                messagebox.showerror("Error", e)
+                return
+
+        if os.name == 'nt':
+            os.startfile(output_dir)
+        elif os.name == 'posix':
+            os.system(f"open {output_dir}")
+
+    def input_number(self):
+        self.x = simpledialog.askinteger(
+            "Cantidad", "Ingrese la cantidad de boletos a generar")
+
+    def rgb2hex(self, rgb):
+        return "#%02x%02x%02x" % rgb
+
+    def run(self):
+        self.root.mainloop()
 
 
-font_size_slider = tk.Scale(root, from_=1, to=200, orient=tk.HORIZONTAL, command=change_font_size)
-font_size_slider.pack()
-
-file_label = tk.Label(root, text="Selected File: None")
-file_label.pack()
-
-canvas = tk.Canvas(root)
-canvas.pack()
-
-canvas.bind("<Button-1>", on_click)
-
-# number_button = tk.Button(root, text="Input Number", command=input_number)
-# number_button.pack()
-progress = ttk.Progressbar(root, orient = tk.HORIZONTAL, length = 100, mode = 'determinate')
-progress.pack(side=tk.LEFT)
-
-generate_button = tk.Button(root, text="Generate Images", command=generate_images)
-generate_button.pack(side=tk.RIGHT)
-
-root.mainloop()
+if __name__ == "__main__":
+    app = ImageGenerator()
+    app.run()
