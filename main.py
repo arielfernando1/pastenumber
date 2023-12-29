@@ -14,6 +14,9 @@ class ImageGenerator:
         self.root.config(background=self.rgb2hex((229, 232, 232)))
 
         self.chosen_point = None
+        self.chosen_point_2 = None
+        self.click_count = 0
+
         self.color_button = tk.Button()
         self.selected_color = (0, 0, 0)
         self.font = ImageFont.truetype("arial.ttf", 50)
@@ -98,7 +101,12 @@ class ImageGenerator:
         self.draw_label()
 
     def on_click(self, event):
-        self.chosen_point = (event.x, event.y)
+        if self.click_count == 0:
+            self.chosen_point = (event.x, event.y)
+            self.click_count = 1
+        elif self.click_count == 1:
+            self.chosen_point_2 = (event.x, event.y)
+            self.click_count = 0
         self.draw_label()
 
     def draw_label(self):
@@ -106,6 +114,9 @@ class ImageGenerator:
             img = Image.open(self.file_path)
             draw = ImageDraw.Draw(img)
             draw.text(self.chosen_point, "0000", font=self.font, fill=self.selected_color)
+            if self.chosen_point_2:
+                draw.text(self.chosen_point_2, "0000", font=self.font, fill=self.selected_color)
+
             self.img_display = ImageTk.PhotoImage(img)
             self.canvas.create_image(0, 0, anchor=tk.NW, image=self.img_display)
 
@@ -126,6 +137,8 @@ class ImageGenerator:
                 img = Image.open(self.file_path)
                 draw = ImageDraw.Draw(img)
                 draw.text(self.chosen_point, str(i+1), font=self.font, fill=self.selected_color)
+                if self.chosen_point_2:
+                    draw.text(self.chosen_point_2, str(i+1), font=self.font, fill=self.selected_color)
                 if img.mode == 'RGBA':
                     img.save(os.path.join(output_dir, f"{i+1}.png"))
                 else:
